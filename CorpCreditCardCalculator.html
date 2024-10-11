@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>금액 계산기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .input-field, .output-field {
+            margin-bottom: 10px;
+        }
+        .input-label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-text {
+            width: 300px;
+            padding: 8px;
+        }
+        .output {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body onload="formatLimitEntry()">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+<div class="input-field">
+    <label for="filter" class="input-label">카드번호 필터 ex) 하나4864승인</label>
+    <input type="text" id="filter" class="input-text">
+</div>
+
+<div class="input-field">
+    <span id="koreanLimit" text-content="ddd"></span><br/>
+    <label for="limit"></label>
+    <input type="text" id="limit" class="input-text" oninput="formatLimitEntry()">
+</div>
+
+<div class="input-field">
+    <button onclick="resetLimit()">한도금액 초기화</button>
+</div>
+
+
+<div class="input-field">
+    <label for="messages" class="input-label">문자 메시지 입력</label>
+    <textarea id="messages" rows="5" class="input-text" oninput="processMessages()"></textarea>
+</div>
+<form>
+        <input type="file" id="imageInput" accept="image/*">
+</form>
+    
+<div class="output">
+    <div id="totalAmount">총 사용금액: </div>
+    <div id="balance">잔액: </div>
+</div>
+
+<script>
+
+    window.onload = function() {
+        extractTextFromImage();
+    };
+        
+    function getAmount(text, filter) {
+        let pattern = /[0-9]+,[0-9]+/g;
+        let match = text.match(pattern);
+        if (!filter || text.includes(filter)) {
+            if (match) {
+                let amount = parseInt(match[0].replace(",", ""));
+                if (text.includes("취소") || text.includes("취 소")) {
+                    return -amount;
+                }
+                return amount;
+            }
+        }
+        return 0;
+    }
+
+    function formatAmount(amount) {
+        return amount.toLocaleString();
+    }
+
+    function sumArray(array) {
+        return array.reduce((acc, val) => acc + val, 0);
+    }
+
+    function numberToKorean(number) {
+        const numString = number.toString();
+        const units = ["", "만", "억", "조", "경"];
+        let result = "";
+        let unit = 10000;
+        let idx = numString.length;
+        let count = 0;
+
+        while (idx > 0) {
+            let slice = (idx - 4 >= 0) ? numString.slice(idx - 4, idx) : numString.slice(0, idx);
+            if (slice !== "0000") {
+                result = slice.replace(/^0+/, "") + units[count] + result;
+            }
+            idx -= 4;
+            count++;
+        }
+
+        return result === "" ? "0원" : result + "원";
+    }
+
+    function resetLimit() {
+        document.getElementById('limit').value = "";
+        document.getElementById('koreanLimit').textContent = "";
+        document.getElementById('totalAmount').textContent = "총 사용금액: ";
+        document.getElementById('balance').textContent = "잔액: ";
+    }
+
+    function formatLimitEntry() {
+        let limitInput = document.getElementById('limit');
+        let koreanLabel = document.getElementById('koreanLimit');
+        let entryText = limitInput.value.replace(",", "");
+        if (!isNaN(entryText) && entryText) {
+            let formattedText = formatAmount(parseInt(entryText));
+            limitInput.value = formattedText;
+            koreanLabel.textContent = "한도 금액: " + numberToKorean(parseInt(entryText));
+        } else {
+            koreanLabel.textContent = "한도 금액: "
+        }
+    }
+
+    function processMessages() {
+        let filterStr = document.getElementById('filter').value;
+        let limitStr = document.getElementById('limit').value.replace(",", "");
+        let messages = document.getElementById('messages').value.split('\n');
+
+        let amounts = messages.map(text => getAmount(text, filterStr)).filter(amount => amount !== 0);
+        let total = sumArray(amounts);
+        document.getElementById('totalAmount').textContent = "총 사용금액: " + formatAmount(total) + "원";
+
+        let limit = parseInt(limitStr);
+          console.log("limit", limit)
+        
+        if (!isNaN(limit)) {
+            let balance = limit - total;
+            console.log("balance", balance)
+            document.getElementById('balance').textContent = "잔액: " + formatAmount(balance) + "원";
+        }
+    }
+    
+    // 이미지 선택 시 텍스트 추출
+    function extractTextFromImage() {
+        document.getElementById('imageInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    // OCR을 사용하여 이미지에서 텍스트 추출
+                    Tesseract.recognize(
+                        e.target.result, 
+                        'kor', // 원하는 언어를 선택할 수 있습니다. 예: 'kor'은 한국어.
+                        {
+                            logger: function(m) {
+                                console.log(m);
+                            }
+                        }
+                    ).then(function(result) {
+                        // 결과 텍스트를 textarea에 표시
+                        document.getElementById('messages').value = result.data.text;
+                        processMessages()
+                    }).catch(function(err) {
+                        console.error(err);
+                    });
+                };
+
+                reader.readAsDataURL(file); // 이미지 파일을 읽어서 처리
+            }
+        });
+    }
+
+</script>
