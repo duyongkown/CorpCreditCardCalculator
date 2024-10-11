@@ -47,7 +47,7 @@
     <textarea id="messages" rows="5" class="input-text" oninput="processMessages()"></textarea>
 </div>
 <form>
-        <input type="file" id="imageInput" accept="image/*">
+    <input type="file" id="imageInput" accept="image/*">
 </form>
     
 <div class="output">
@@ -163,7 +163,10 @@
                         }
                     ).then(function(result) {
                         // 결과 텍스트를 textarea에 표시
-                        document.getElementById('messages').value = result.data.text;
+                        const textarea = document.getElementById('messages');
+                        textarea.value += result.data.text + "\n"; // 텍스트 추가 및 줄바꿈
+                        
+                        document.getElementById('imageInput').value = '';
                         processMessages()
                     }).catch(function(err) {
                         console.error(err);
